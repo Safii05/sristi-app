@@ -19,7 +19,8 @@ import {
   Filter,
   Calendar,
   Clock,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { 
   Chart as ChartJS, 
@@ -43,7 +44,7 @@ import {
   cropStatusData as mockCrops, 
   inventoryData as mockInventory
 } from '../services/mockData';
-import { getDashboardStats, getTrainees, addTrainee, getTasks, addTask, updateTask, getCrops, getInventory } from '../services/api';
+import { getDashboardStats, getTrainees, addTrainee, deleteTrainee, getTasks, addTask, updateTask, deleteTask, getCrops, getInventory } from '../services/api';
 
 // Register ChartJS components
 ChartJS.register(
@@ -147,6 +148,30 @@ const AdminDashboard = ({ onLogout }: Props) => {
     }
   };
 
+  const handleDeleteTrainee = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this trainee?')) return;
+    try {
+      await deleteTrainee(id);
+      setTrainees(trainees.filter(t => t.id !== id));
+    } catch (err) {
+      console.error("Failed to delete trainee", err);
+      // Optimistic delete for demo
+      setTrainees(trainees.filter(t => t.id !== id));
+    }
+  };
+
+  const handleDeleteTask = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await deleteTask(id);
+      setTasks(tasks.filter(t => t.id !== id));
+    } catch (err) {
+      console.error("Failed to delete task", err);
+      // Optimistic delete for demo
+      setTasks(tasks.filter(t => t.id !== id));
+    }
+  };
+
   return (
     <DashboardLayout
       menuItems={menuItems}
@@ -156,8 +181,8 @@ const AdminDashboard = ({ onLogout }: Props) => {
       userType="Admin"
     >
       {activePage === 'dashboard' && <AdminDashboardHome stats={stats} />}
-      {activePage === 'trainees' && <TraineesSection data={trainees.length > 0 ? trainees : mockTrainees} onAddTrainee={handleAddTrainee} />}
-      {activePage === 'farmTask' && <FarmTaskSection data={tasks.length > 0 ? tasks : mockTasks} trainees={trainees.length > 0 ? trainees : mockTrainees} onUpdateTask={handleUpdateTaskStatus} onAddTask={handleAddTask} />}
+      {activePage === 'trainees' && <TraineesSection data={trainees.length > 0 ? trainees : mockTrainees} onAddTrainee={handleAddTrainee} onDeleteTrainee={handleDeleteTrainee} />}
+      {activePage === 'farmTask' && <FarmTaskSection data={tasks.length > 0 ? tasks : mockTasks} trainees={trainees.length > 0 ? trainees : mockTrainees} onUpdateTask={handleUpdateTaskStatus} onAddTask={handleAddTask} onDeleteTask={handleDeleteTask} />}
       {activePage === 'cropMonitoring' && <CropMonitoringSection data={crops.length > 0 ? crops : mockCrops} />}
       {activePage === 'attendanceProduction' && <AttendanceProductionSection />}
       {activePage === 'inventory' && <InventorySection data={inventory.length > 0 ? inventory : mockInventory} />}
@@ -213,7 +238,7 @@ const AdminDashboardHome = ({ stats }: any) => {
   );
 };
 
-const TraineesSection = ({ data, onAddTrainee }: any) => {
+const TraineesSection = ({ data, onAddTrainee, onDeleteTrainee }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTrainee, setNewTrainee] = useState({ name: '', group_name: 'Organic Farming', status: 'Active' });
 
@@ -354,9 +379,18 @@ const TraineesSection = ({ data, onAddTrainee }: any) => {
                     </div>
                   </td>
                   <td style={{ padding: '1.25rem' }}>
-                    <button style={{ background: 'none', color: '#94a3b8' }}>
-                      <MoreVertical size={20} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button style={{ background: 'none', color: '#94a3b8' }}>
+                        <MoreVertical size={20} />
+                      </button>
+                      <button 
+                        onClick={() => onDeleteTrainee(row.id)}
+                        style={{ background: 'none', color: '#ef4444', cursor: 'pointer' }}
+                        title="Delete Trainee"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -368,7 +402,7 @@ const TraineesSection = ({ data, onAddTrainee }: any) => {
   );
 };
 
-const FarmTaskSection = ({ data, trainees, onUpdateTask, onAddTask }: any) => {
+const FarmTaskSection = ({ data, trainees, onUpdateTask, onAddTask, onDeleteTask }: any) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'schedule'>('kanban');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({ priority: '', assignee: '' });
@@ -625,7 +659,16 @@ const FarmTaskSection = ({ data, trainees, onUpdateTask, onAddTask }: any) => {
                       <span className={`priority-badge priority-${task.urgency.toLowerCase()}`}>
                          {task.urgency}
                       </span>
-                      <h4 className="task-name">{task.title}</h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <h4 className="task-name" style={{ margin: 0 }}>{task.title}</h4>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}
+                          title="Delete Task"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                       <div className="task-meta">
                         <Clock size={16} />
                         <span>{task.scheduled_date || (task.status === 'Completed' ? 'Yesterday' : 'Today')}</span>
@@ -684,6 +727,13 @@ const FarmTaskSection = ({ data, trainees, onUpdateTask, onAddTask }: any) => {
                     <span className="text-xs text-slate-500">Assignee</span>
                   </div>
                   <div className="avatar" style={{ background: 'white' }}>{getInitials(task.assignee)}</div>
+                  <button 
+                    onClick={() => onDeleteTask(task.id)}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', marginLeft: '1rem' }}
+                    title="Delete Task"
+                  >
+                    <Trash2 size={20} />
+                  </button>
                 </div>
               </div>
             )) : (

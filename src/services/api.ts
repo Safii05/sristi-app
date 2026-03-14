@@ -32,5 +32,7 @@ export const getAttendanceProduction = () => api.get('/attendance-production');
 export const getInventory = () => api.get('/inventory');
 export const addInventory = (data: any) => api.post('/inventory', data);
 export const getReports = () => api.get('/reports');
+export const deleteTrainee = (id: number) => api.delete(`/trainees/${id}`);
+export const deleteTask = (id: number) => api.delete(`/tasks/${id}`);
 
 export default api;
